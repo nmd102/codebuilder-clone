@@ -1,5 +1,6 @@
 import logging
 import os
+import math
 import numpy as np
 import sympy
 import json
@@ -26,7 +27,7 @@ def header(n, name):
     }
 
 
-def genRandKAlphabet(key_at_front, xeno):
+def genRandKAlphabet(k, xeno):
     A = [
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N',
         'Ñ', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
@@ -59,6 +60,8 @@ def genRandKAlphabet(key_at_front, xeno):
             if let in A_filtered:
                 A_filtered.remove(let)
 
+    key_at_front = (k == 3)
+
     pos_start = 0 if key_at_front else random.randint(0, sizeA - len(keyword))
     pos_end = pos_start + len(keyword)
 
@@ -89,9 +92,11 @@ def keyStringRandom(xeno, k=0):
         else:
             while not test1(A):
                 random.shuffle(A)
+
+        keyword = ""
     else:
-        A, _ = genRandKAlphabet(False, xeno)
-    return "".join(A)
+        A, keyword = genRandKAlphabet(k, xeno)
+    return "".join(A), keyword
 
 
 def test1(l):
@@ -110,15 +115,26 @@ def test2(l):
 
 
 def genRandMono(num, quote, pat, errors, hint, k=0):
-    key = keyStringRandom(False, k)
+    alphabet_regular = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-    r = {}
     if k == 1:
-        for i in range(26):
-            r[key[i]] = chr(i + 65)
+        plaintext_alphabet, _ = keyStringRandom(False, k)
+        ciphertext_alphabet = alphabet_regular
+    elif k == 2:
+        plaintext_alphabet = alphabet_regular
+        ciphertext_alphabet, _ = keyStringRandom(False, k)
+    elif k == 3:
+        ciphertext_alphabet, keyword_raw = keyStringRandom(False, k)
+        keyword = "".join(set(keyword_raw))
+        offset = -random.randint(1, 26 - len(keyword))
+        plaintext_alphabet = ciphertext_alphabet[offset:] + ciphertext_alphabet[:offset]
     else:
-        for i in range(26):
-            r[chr(i + 65)] = key[i]
+        plaintext_alphabet = alphabet_regular
+        ciphertext_alphabet, _ = keyStringRandom(False, k)
+
+    r = { }
+    for i in range(26):
+        r[plaintext_alphabet[i]] = ciphertext_alphabet[i]
 
     x = {
         "cipherString": quote,
@@ -128,8 +144,8 @@ def genRandMono(num, quote, pat, errors, hint, k=0):
         "offset2": 1,
         "keyword": "",
         "keyword2": "",
-        "alphabetSource": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-        "alphabetDest": key,
+        "alphabetSource": plaintext_alphabet,
+        "alphabetDest": ciphertext_alphabet,
         "curlang": "en",
         "replacement": r,
         "editEntry": str(num),
@@ -152,18 +168,19 @@ def genRandMono(num, quote, pat, errors, hint, k=0):
 
     if errors:
         error_bank = {
-            r" I ": "eye",
-            r" the ": "teh",
-            r" and ": "end",
-            r" we ": "wii",
-            r" their ": "there",
-            r" there ": "their",
-            r" no ": "know",
-            r"(?=[a-zA-Z]+)able ": "ible "
+            r" I ": " eye ",
+            r" the ": " teh ",
+            r" and ": " end ",
+            r" we ": " wii ",
+            r" their ": " there ",
+            r" there ": " their ",
+            r" no ": " know ",
+            r"(?=[a-zA-Z]+)able ": "ible ",
+            r"able ": "abel"
         }
 
         for original, error in error_bank.items():
-            if int(random() * 10) == int(random() * 10):
+            if int(random.random() * 10) == int(random.random() * 10):
                 quote = re.sub(original, error, quote)
 
         x["cipherString"] = quote
@@ -181,7 +198,7 @@ def genRandMono(num, quote, pat, errors, hint, k=0):
         while r[chr(letter - 32)] not in quote.upper():
             letter = random.randint(97, 122)
 
-        m = key[letter - 97]
+        m = key[chr(letter - 97)]
 
         x["question"] = (x["question"][:-4] + " The letter " +
                          chr(letter).upper() + " maps to " + m + ".</p>")
@@ -195,7 +212,7 @@ def genRandMono(num, quote, pat, errors, hint, k=0):
 
 
 def genRandXeno(num, quote, hint, k=0):
-    key = keyStringRandom(True, k)
+    key, _ = keyStringRandom(True, k)
     quote = genSpanishQuote(70, 160)
     r = {}
     for i in range(0, 14):
@@ -389,11 +406,11 @@ def genRand2x2Hill(num, quote, enc):
         q += quote[a] + " "
         a += 1
     q = q[:-1]
-    
+
     key = get2x2Key()
     while determinant2x2(key) == 0:
         key = get2x2Key()
-    
+
     x = {
         "cipherString": q,
         "cipherType": "hill",
@@ -865,6 +882,8 @@ def genRandAtbash(num, quote, enc):
 def genRandNihilist(num, quote):
     nihilist_alphabet = "ABCDEFGHIKLMNOPQRSTUVWXYZ"
 
+    plaintext = re.sub(r"[^a-zA-Z]", "", quote.upper().replace("J", "I"))
+
     key_raw = getRandWord(5, 8).replace("J", "I").upper()
 
     key_list = []
@@ -873,42 +892,22 @@ def genRandNihilist(num, quote):
             key_list.append(char)
     key = "".join(key_list)
 
-    polybius_square_str = key + "".join(
-        [abc if abc not in key else "" for abc in nihilist_alphabet])
-    polybius_square_arr = np.array(list(polybius_square_str)).reshape(5, 5)
+    keyword = getRandWord(5, 8).upper().replace("J", "I")
 
-    polybius_square_dict = {}
-    for i in range(5):
-        for j in range(5):
-            row = i + 1
-            column = j + 1
-            polybius_square_dict[polybius_square_arr[i][j]] = int(
-                f"{row}{column}")
-
-    print(polybius_square_dict)
-
-    plaintext = re.sub("[^a-zA-Z]", "", quote.upper().replace("J", "I"))
-    ciphertext = []
-
-    keyword = getRandWord(5, 8).upper()
-    k = 0
-    for pt in plaintext:
-        pt_num = polybius_square_dict[pt]
-        keyword_num = polybius_square_dict[keyword[k]]
-        ciphertext.append(pt_num + keyword_num)
-        k = (k + 1) % len(keyword)
+    crib_len = len(keyword) + random.randint(-1, 3)
+    crib = plaintext[:crib_len]
 
     x = {
         "cipherType": "nihilistsub",
         "keyword": keyword,
-        "cipherString": ciphertext,
+        "cipherString": plaintext,
         "findString": "",
         "operation": "decode",
         "polybiusKey": key,
         "curlang": "en",
         "points": 250,
         "question":
-        f"<p>The following quote needs to be decoded with the Nihilist Substitition Cipher with a keyword of {keyword} and polybius key of {key}</p>",
+        f"<p>The following quote needs to be decoded with the Nihilist Substitition Cipher with a keyword of {keyword} and polybius key of {key_raw}. You are told that the quote starts with {crib}.</p>",
         "editEntry": str(num),
         "alphabetSource": "",
         "alphabetDest": ""
@@ -917,81 +916,68 @@ def genRandNihilist(num, quote):
     return x
 
 
-def genRandColumnar(num, quote, rows, hint_type, offset):
-    if (int(rows[0]) < 2 or int(rows) > 11) and rows != "R":
-        return None
-    quote = genQuoteLength(75, 100)
-    r = 0
+def genRandColumnar(num, quote, columns, hint_type, offset):
+    try:
+        if (int(columns) < 5 or int(columns) > 11) and columns != "C" and "CM" not in columns:
+            columns = "C"
+    except:
+        print("can't decipher columns info")
+        columns = "C" if "CM" not in columns else columns
+
+    c = 0
     p = 0
-    if rows == "R":
-        r = random.randint(2, 11)
+    if columns == "C":
+        c = random.randint(5, 11)
         p = 150
+    elif "CM" in columns:
+        try:
+            c = random.randint(5, max(5, int(columns.split("CM")[1])))
+        except:
+            c = random.randint(5, 9)
+
+        p = 125
     else:
-        r = int(rows)
-        p = 100 + (r - 2) * 10
-    if hint_type == "RR":
+        c = int(columns)
+        p = 100 + (c - 2) * 10
+
+    hint_text = ""
+    if hint_type == "CR":
         num_above = random.randint(0, 2)
-        max = r + num_above
-        min = r - (2 - num_above)
-        rows = f"between {min} and {max}"
+        max_c = c + num_above
+        min_c = c - (2 - num_above)
+        hint_text = f" You are told that between {min_c} and {max_c} columns were used to encode it."
 
-    cipher = ""
+    keyword = getRandWord(c, c).upper()
 
-    key = genRandWord(5, 8)
+    quote = genQuoteLength(25, 100)
+    while len(re.sub(r"[^a-zA-Z]", "", quote)) % len(keyword) != 0:
+        quote = genQuoteLength(25, 100)
 
-    # track key indices
-    k_indx = 0
+    print(c)
 
-    quote_len = float(len(quote))
-    quote_lst = list(quote)
-    key_lst = sorted(list(key))
+    crib_len = random.randint(min(c - (1 if (c < 10) else 3), 3), c + 3)
+    crib_start = 0 if hint_type == "CR" else random.randint(0, len(re.sub(r'[^a-zA-Z]', "", quote)) - crib_len - 1)
+    crib = re.sub(r'[^a-zA-Z]', "", quote)[crib_start:crib_start+crib_len]
 
-    # calculate column of the matrix
-    col = len(key)
+    print(crib_len, len(re.sub(r'[^a-zA-Z]', "", quote)), crib_start, f"'{crib}'")
 
-    # calculate maximum row of the matrix
-    row = int(math.ceil(quote_len / col))
-
-    # add the padding character '_' in empty
-    # the empty cell of the matix
-    fill_null = int((row * col) - quote_len)
-    quote_lst.extend('_' * fill_null)
-
-    # create Matrix and insert message and
-    # padding characters row-wise
-    matrix = [quote_lst[i:i + col] for i in range(0, len(quote_lst), col)]
-
-    # read matrix column-wise using key
-    for _ in range(col):
-        curr_idx = key.index(key_lst[k_indx])
-        cipher += ''.join([row[curr_idx] for row in matrix])
-        k_indx += 1
+    if crib_start != 0:
+        hint_text += f" You are told that {c} columns were used to encode it."
 
     x = {
-        "cipherString":
-        cipher,
-        "cipherType":
-        "compcolumnar",
-        "rows":
-        r,
-        "railOffset":
-        random.randint(1, r * 2 - 2) if offset == "RO" else offset,
-        "isRailRange":
-        True,
+        "cipherString": quote,
+        "cipherType": "compcolumnar",
+        "rails": c,
+        "keyword": keyword,
+        "railOffset": 0,
+        "isRailRange": True,
         "replacement": {},
-        "curlang":
-        "en",
-        "points":
-        p,
+        "curlang": "en",
+        "points": p,
         "question":
-        f"<p>A quote has been encoded using the Complete Columnar Transposition Cipher for you to decode. You are told that {rows} rows"
-        + (f"and an unknown offset" if offset == "RO" else
-           (f"and an offset of {offset}" if offset > 0 else "")) +
-        " were used to encode it.</p>",
-        "editEntry":
-        str(num),
-        "specialbonus":
-        False
+        f"<p>A quote has been encoded using the Complete Columnar Transposition Cipher for you to decode using the crib {crib}.{hint_text}</p>",
+        "editEntry": str(num),
+        "specialbonus": False
     }
 
     return x
@@ -1134,7 +1120,7 @@ def get3x3Key():
 
 
 def determinant2x2(key):
-    matrix = [list("ABCDEFGHIJKLMNOPQRSTUVWXYZ").index(k) for k in key]
+    matrix = [list("ABCDEFGHIJKLMNOPQRSTUVWXYZ").index(k.upper()) for k in key]
     return matrix[0] * matrix[3] - matrix[1] * matrix[2]
 
 
@@ -1153,69 +1139,65 @@ def genTest(na, preset):
             "6 D",
             "6 E",
             "6 C",
-            "11 D",
-            "11 C",
-            "12 D",
-            "12 C",
+            "9 D",
+            "9 D"
             "13 E",
             "13 D",
             "13 C",
-            "14 2",
+            "13 C",
             "16 D",
             "16 D"
-            "14 3",
-            "14 4",
-            "14 R",
-            "8 1",
+            "17 D",
+            "17 D"  #, "8 1", "18 D", "18 D"
         ]
+        if "1" in preset:
+            l.extend(["2 X", "2 X", "18 D CM6"])
         if "2" in preset:
-            l.extend(["8 1"])
+            l.extend(["8 1", "18 D CM9"])
+        if "3" in preset:
+            l.extend(["18 D CM11"])
         if "1" in preset or "2" in preset:
-            l.extend(["7 D", "7 E"])
+            l.extend(["7 D", "7 E", "2 X"])
         if "2" in preset or "3" in preset:
-            l.extend([
-                "1 2", "1 2", "1 2", "1 2", "1 2", "1 2", "1 2", "1 2", "1 2",
-                "1 2"
-            ])
+            l.extend(["1 2", "1 2", "1 2", "2 D", "17 D"])
         n = len(l)
     elif "b" in preset:
         l = [
-            "1 2", "1 1", "1 0", "2 2", "2 1", "2 0", "8 1", "3 D", "3 E",
-            "3 C", "4 D", "4 E", "15 D", "13 E", "13 D", "13 C", "14 2",
-            "14 3", "14 4", "14 R RR"
+            "1 D", "1 D", "1 2", "1 1", "1 0", "1 X"
+            "2 2", "2 1", "2 0", "8 1", "4 D", "4 E",
+            "9 D", "15 D", "13 E", "13 D", "13 C", "16 D", "17 D",
+            "18 D CM6"
         ]
+        if "2" in preset:
+            l.extend(["1 2", "8 1"])
         if "1" in preset or "2" in preset:
-            l.extend(["11 D", "11 C", "12 D", "12 C"])
+            l.extend(["2 1", "2 X", "2 D"])
+        if "2" in preset or "3" in preset:
+            l.extend(["1 2", "1 2", "1 2"])
         n = len(l)
     elif preset == "1":  # backwards compat
         l = [
             "1 2", "1 1", "1 0", "2 2", "2 1", "2 0", "3 D", "3 E", "3 C",
             "4 D", "4 E", "5 D", "5 E", "5 C", "6 D", "6 E", "6 C", "7 D",
-            "7 E", "8 1", "9 L", "9 S", "9 W", "11 D", "11 C", "12 D", "12 C",
-            "13 E", "13 D", "13 C", "14 2", "14 4", "14 R", "16 D"
+            "7 E", "8 1", "9 L", "9 S", "9 W", "13 E", "13 D", "13 C", "16 D",
+            "17 D", "18 D CM6"
         ]
         n = len(l)
     elif preset == "2":  # backwards compat
-        aff = ["3 D", "3 E", "3 C"]
-        vig = ["5 D", "5 E", "5 C"]
         hill2 = ["6 D", "6 E", "6 C"]
         hill3 = ["7 D", "7 E"]
+        aff = ["3 D", "3 E"]
         bac = ["9 L", "9 S", "9 W"]
-        mor = ["11 D", "11 C", "12 D", "12 C"]
         porta = ["13 E", "13 D", "13 C"]
         random.shuffle(porta)
         random.shuffle(aff)
-        random.shuffle(vig)
         random.shuffle(hill2)
         random.shuffle(hill3)
         random.shuffle(bac)
-        random.shuffle(mor)
         l = [
             "1 2", "1 2", "1 2", "1 2", "1 2", "1 2", "1 2", "1 2", "1 2",
-            "1 2", "2 2", "2 1", "2 0", aff[0], aff[1], "4 D", "4 E", vig[0],
-            vig[1], hill2[0], hill2[1], hill3[0], "8 1", "8 1", bac[0], bac[1],
-            mor[0], mor[1], mor[2], porta[0],
-            "14 " + str(random.randint(5, 6)), "14 R", "16 D"
+            "1 2", "2 2", "2 1", "2 0", aff[0], aff[1], "4 D", "4 E", hill2[0],
+            hill2[1], hill3[0], "8 1", "8 1", bac[0], bac[1], porta[0], "16 D"
         ]
         n = len(l)
     elif preset == "3":  # backwards compat
@@ -1295,11 +1277,15 @@ def genTest(na, preset):
         if int(question[0]) == 17:
             test["CIPHER." + str(i + 1)] = genRandNihilist(i, q[i])
         if int(question[0]) == 18:
+            if "CM" in question:
+                after_CM = question[question.index("CM"):]
+                if " " in after_CM:
+                    CM_str = after_CM[:after_CM.index(" ")]
+                else:
+                    CM_str = after_CM
+                
             test["CIPHER." + str(i + 1)] = genRandColumnar(
-                i, q[i], question[1], "RR" if "RR" in question else "RN",
-                "RO" if "RO" in question else
-                (int(question[question.index("O") +
-                              1:]) if "O" in question else 0))
+                i, q[i], question[1], "CR" if "CR" in question else (CM_str if "CM" in question else "2"), 0)
     file = open("CodeTests/" + na + ".json", "w")
     file.write(json.dumps(test))
     file.close()
@@ -1408,9 +1394,9 @@ async def customQ(ctx):
     coptions = [
         "D  Decode", "E  Encode", "C  Crypt", "L  Letter 4 Letter",
         "S  Sequence", "W  Words", "0  Word Hint", "1  Character Hint",
-        "2  No Hint", "R  Random Rail/Row Count", "RR  Rail/Row Range Hint",
-        "RN  Rail/Row Count Hint", "K1  K1 Alphabet", "K2  K2 Alphabet",
-        "X  Errors"
+        "2  No Hint", "R  Random Rail Count", "RR  Rail Range Hint",
+        "RN  Rail Count Hint", "CR  Column Range Hint", "K1  K1 Alphabet",
+        "K2  K2 Alphabet", "X  Errors"
     ]
 
     if len(coptions) < len(ciphers):
@@ -1452,7 +1438,7 @@ async def about(ctx):
 @bot.command(name="presets", help="Lists presets for `c!gen`.")
 async def presets(ctx):
     await ctx.send(
-        "```1\tAll Types - 34 Questions + Timed - Includes one of each cipher type.\n2\tNational Level Test - 33 Questions + Timed - National Level test, with random modes of questions.\n3\tRegional Level Test - 23 Questions + Timed - Regional level test, with random modes of questions.\n4\tAristo Spam - 20 Questions + Timed - 20 Unhinted Aristocrats.\n5\tPatristo Spam - 10 Questions + Timed - 10 Unhinted Patristocrats.\n\nAdd b or c after prefixes 1, 2, or 3 to generate a test of that type for the specified division, with question counts varying based on division and type.```"
+        "```1\tAll Types - 20-30 Questions + Timed - Includes one of each cipher type.\n2\tNational Level Test - 20-30 Questions + Timed - National Level test, with random modes of questions.\n3\tRegional Level Test - 20-30 Questions + Timed - Regional level test, with random modes of questions.\n4\tAristo Spam - 20 Questions + Timed - 20 Unhinted Aristocrats.\n5\tPatristo Spam - 10 Questions + Timed - 10 Unhinted Patristocrats.\n\nAdd b or c after prefixes 1, 2, or 3 to generate a test of that type for the specified division, with question counts varying based on division and type.```"
     )
 
 

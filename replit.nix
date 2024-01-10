@@ -1,5 +1,6 @@
 { pkgs }: {
   deps = [
+    pkgs.glibcLocales
     pkgs.htop
 pkgs.python38Full
   ];
