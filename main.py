@@ -26,6 +26,26 @@ def header(n, name):
         "testtype": "cstate",
     }
 
+def isAllen(s):
+    if s == "357337245318905856":
+        return True
+    return False
+
+
+with open("admin.txt") as f:
+    a = f.readlines()
+admin_list = [str(x.strip()) for x in a]
+print(admin_list)
+
+with open("secret.txt") as f:
+    a = f.readlines()
+secret_list = [str(x.strip()) for x in a]
+print(secret_list)
+
+with open("cancel.txt") as f:
+    a = f.readlines()
+cancel_list = [str(x.strip()) for x in a]
+print(cancel_list)
 
 def genRandKAlphabet(k, xeno):
     A = [
@@ -1430,7 +1450,7 @@ async def servers(ctx):
 
 @bot.command(name="about", help="About me!")
 async def about(ctx):
-    await ctx.send(
+    await ctx.send(        
         "Hi! I was made by Allen Chang. My old source code is at https://github.com/AC01010/codebuilder, but I am now maintained by Rasmit Devkota at https://replit.com/@DrAlienTech/codebuilder-immortal#main.py."
     )
 
@@ -1456,7 +1476,11 @@ async def invite(ctx):
 async def testing(ctx):
     await ctx.send("test!")    
     await ctx.send(ctx.message.author.id)
-
+    
+@bot.command(name = "server")
+async def server(ctx):
+    await ctx.send(ctx.message.guild.name)
+    
 @bot.event
 async def on_ready():
     background_task.start()
@@ -1485,26 +1509,7 @@ except discord.errors.HTTPException:
 ##############################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
 
 
-def isAllen(s):
-    if s == "357337245318905856":
-        return True
-    return False
 
-
-with open("admin.txt") as f:
-    a = f.readlines()
-admin_list = [str(x.strip()) for x in a]
-print(admin_list)
-
-with open("secret.txt") as f:
-    a = f.readlines()
-secret_list = [str(x.strip()) for x in a]
-print(secret_list)
-
-with open("cancel.txt") as f:
-    a = f.readlines()
-cancel_list = [str(x.strip()) for x in a]
-print(cancel_list)
 
 
 @bot.command(name="cancel", hidden=True)
