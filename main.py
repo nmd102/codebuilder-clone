@@ -1452,7 +1452,10 @@ async def invite(ctx):
     await ctx.send(
         "https://discord.com/oauth2/authorize?client_id=997355252506435748&permissions=125952&scope=bot"
     )
-
+@bot.command(name="testing")
+async def testing(ctx):
+    await ctx.send("test!")    
+    await ctx.send(ctx.message.author.id)
 
 @bot.event
 async def on_ready():
