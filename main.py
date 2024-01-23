@@ -11,6 +11,7 @@ from discord.ext import commands, tasks
 from discord import File
 from itertools import cycle
 from keep_alive import keep_alive
+import subprocess
 
 TOKEN = os.getenv("TOKEN")
 
@@ -1315,7 +1316,7 @@ def genTest(na, preset):
 # bot = commands.Bot(command_prefix="c!")
 # client = discord.Client()
 
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="c!", intents=intents)
 client = discord.Client(intents=intents)
 
@@ -1451,7 +1452,7 @@ async def servers(ctx):
 @bot.command(name="about", help="About me!")
 async def about(ctx):
     await ctx.send(        
-        "Hi! I was made by Allen Chang. My old source code is at https://github.com/AC01010/codebuilder, but I am now maintained by Rasmit Devkota at https://replit.com/@DrAlienTech/codebuilder-immortal#main.py."
+        "Hi! I was made by Allen Chang. My old source code is at https://github.com/AC01010/codebuilder. I used to be maintained by Rasmit Devkota at https://replit.com/@DrAlienTech/codebuilder-immortal#main.py. Now I am run at https://replit.com/@NoahMM/codebuilder-clone"
     )
 
 
@@ -1470,7 +1471,7 @@ async def ping(ctx):
 @bot.command(name="invite", help="Sends invite link to add bot to any server")
 async def invite(ctx):
     await ctx.send(
-        "https://discord.com/oauth2/authorize?client_id=997355252506435748&permissions=125952&scope=bot"
+        "https://discord.com/api/oauth2/authorize?client_id=1194297018265378916&permissions=117760&scope=bot"
     )
 @bot.command(name="testing")
 async def testing(ctx):
@@ -1480,7 +1481,35 @@ async def testing(ctx):
 @bot.command(name = "server")
 async def server(ctx):
     await ctx.send(ctx.message.guild.name)
-    
+
+@bot.command(name = "run", hidden = True)
+async def run(ctx, method, *code_list):
+    if str(ctx.message.author.id) in admin_list:
+        try:
+            code = "";
+            for i in code_list:
+                code += i + " "
+        except:
+            pass
+        if(str(method) == "python"):
+            try:
+                exec(code)
+            except:
+                await ctx.send("failed to run code")
+            else:
+                await ctx.send("successfully ran code")
+        elif(str(method) == "shell"):
+            try:
+                await ctx.send(subprocess.run(code, shell=True))
+            except:
+                await ctx.send("failed to execute shell command")
+            else:
+                await ctx.send("successfully executed shell command")
+        else:
+            await ctx.send(f"unknown method: {method}")
+    else:
+        await ctx.send("You don't have permissions to use this command.")
+            
 @bot.event
 async def on_ready():
     background_task.start()
@@ -1505,5 +1534,3 @@ except discord.errors.HTTPException:
     print("Ratelimited!")
 
     # os.system("exit 1")  # might need to switch to kill, not sure
-
-##############################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
