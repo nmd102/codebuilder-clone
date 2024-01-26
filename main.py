@@ -1551,7 +1551,8 @@ async def about(ctx):
     await ctx.send(
         "Hi! I was made by Allen Chang. My old source code is at https://github.com/AC01010/codebuilder. I used to be "
         "maintained by Rasmit Devkota at https://replit.com/@DrAlienTech/codebuilder-immortal#main.py. Now I am run "
-        "at https://replit.com/@NoahMM/codebuilder-clone"
+        "at https://replit.com/@NoahMM/codebuilder-clone by [@NoahMM](https://replit.com/@NoahMM) and "
+        "[@ComputingSquid](https://replit.com/@ComputingSquid)"
     )
 
 
@@ -1569,7 +1570,7 @@ async def presets(ctx):
 
 @bot.hybrid_command(name="ping", description="Pong!")
 async def ping(ctx):
-    await ctx.reply("Pong!", ephemeral=True)
+    await ctx.send("Pong!")
 
 
 @bot.hybrid_command(name="invite", description="Sends invite link to add bot to any server")
@@ -1703,7 +1704,6 @@ async def run(ctx, method, *code_list):
 async def on_ready():
     background_task.start()
     print("Codebuilder Bot Ready")
-
     print(client.guilds)
 
 
