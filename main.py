@@ -1,20 +1,120 @@
+import string
 import logging
 import os
-import math
-import numpy as np
 import sympy
 import json
 import re
 import random
 import discord
 from discord.ext import commands, tasks
-from discord import File
+from discord import File, app_commands
 from itertools import cycle
 from keep_alive import keep_alive
 import subprocess
+import time
 
 TOKEN = os.getenv("TOKEN")
+class Bot(commands.Bot):
+    def __init__(self):
+        intents = discord.Intents.all()
+        super().__init__(command_prefix = "c!", intents = intents)
+    async def setup_hook(self):
+        await self.tree.sync()
+        print(f"Synced slash commands for {self.user}.")
+    async def on_command_error(self, ctx, error):
+        await ctx.reply(error, ephemeral = True)
+global inAristo
+inAristo = False
+global replacements
+replacements = ""
+global ct
+ct = ""
+global hints
+hints = 0
+global begin
+begin = 0
+global quote
+quote = ""
+global key
+key = ""
 
+def getKeyStringRandom():
+  A = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+  while not testValid(A):
+    random.shuffle(A)
+  return "".join(A)
+
+
+def testValid(l):
+  for i in range(26):
+    if ord(l[i]) - 65 == i:
+      return False
+  return True
+
+
+async def display(ctx, ct, replace):
+  global quote
+  global begin
+  global hints
+  joinMessage = "**Chiphertext:**\n"
+  # await ctx.send("**Ciphertext:**")
+  words = ct.split(" ")
+  lines = []
+  while len(words) > 0:
+    line = ""
+    while len(line) < 50:
+      if len(words) > 0:
+        line += (words.pop(0) + " ")
+      else:
+        break
+    lines.append(line[0:-1])
+  replacement = ct.lower()
+  for i in range(0, 26):
+    if replace[i] != " ":
+      replacement = replacement.replace(chr(i + 97), replace[i])
+  for i in list(string.ascii_lowercase):
+    replacement = replacement.replace(i, "_")
+  words2 = replacement.split(" ")
+  lines2 = []
+  while len(words2) > 0:
+    line = ""
+    while len(line) < 50:
+      if len(words2) > 0:
+        line += (words2.pop(0) + " ")
+      else:
+        break
+    lines2.append(line[0:-1])
+  message = "```"
+  for i in range(len(lines)):
+    message += lines[i] + "\n"
+    message += lines2[i] + "\n"
+  joinMessage += message + "```\n**Frequency Table:**\n"
+  freqtable = [list(string.ascii_uppercase)]
+  freqs = []
+  for i in freqtable[0]:
+    freqs.append(ct.count(i))
+  freqtable.append(freqs)
+  freqtable.append(list(replace))
+  l = "```            "
+  message = ""
+  for i in range(26):
+    l += freqtable[0][i] + " " * len(str(freqtable[1][i]))
+  message += l + "\n"
+  l = "Frequency   "
+  for i in range(26):
+    l += str(freqtable[1][i]) + " "
+  message += l + "\n"
+  l = "Replacement "
+  for i in range(26):
+    l += freqtable[2][i] + " " * len(str(freqtable[1][i]))
+  message += l + "```"
+  await ctx.reply(joinMessage + message, ephemeral=True)
+  if replacement == quote:
+      duration = time.time() - begin
+      endMessage = f"You win!\n Your time was {round(duration, 3)} seconds!"
+      if hints:
+          endMessage += f"You used {hints} hints!"
+      await ctx.send(endMessage)
 
 def header(n, name):
     return {
@@ -36,17 +136,14 @@ def isAllen(s):
 with open("admin.txt") as f:
     a = f.readlines()
 admin_list = [str(x.strip()) for x in a]
-print(admin_list)
 
 with open("secret.txt") as f:
     a = f.readlines()
 secret_list = [str(x.strip()) for x in a]
-print(secret_list)
 
 with open("cancel.txt") as f:
     a = f.readlines()
 cancel_list = [str(x.strip()) for x in a]
-print(cancel_list)
 
 def genRandKAlphabet(k, xeno):
     A = [
@@ -1304,7 +1401,7 @@ def genTest(na, preset):
                     CM_str = after_CM[:after_CM.index(" ")]
                 else:
                     CM_str = after_CM
-                
+
             test["CIPHER." + str(i + 1)] = genRandColumnar(
                 i, q[i], question[1], "CR" if "CR" in question else (CM_str if "CM" in question else "2"), 0)
     file = open("CodeTests/" + na + ".json", "w")
@@ -1317,14 +1414,14 @@ def genTest(na, preset):
 # client = discord.Client()
 
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="c!", intents=intents)
+bot = Bot()
 client = discord.Client(intents=intents)
 
 
-@bot.command(
+@bot.hybrid_command(
     name="gen",
-    help=
-    "Generates a test. Input the name of the test as well as a preset. See `c!presets` for more info.\n`c!gen Example 1`",
+    description=
+    "Generates a test. Input the name of the test as well as a preset. See `c!presets` for more info.",
 )
 async def gen(ctx, name, pre):
     try:
@@ -1340,10 +1437,10 @@ async def gen(ctx, name, pre):
         print(logging.exception(""))
 
 
-@bot.command(
-    name="genCustom",
-    help=
-    'Generates a test. Input the name of the test as well as a list of questions. For spam tests, you may also list the number of times to generate a specific item before the item itself, like "50*1 D". See `c!customQ` for more info.\n`c!gen Example "1 2,1 2,2 2,6 D,50*1 D,50*2 D"`',
+@bot.hybrid_command(
+    name="gencustom",
+    description=
+    'creates a custom codebusters test',
 )
 async def genCustom(ctx, name, pre):
     try:
@@ -1377,9 +1474,9 @@ async def genCustom(ctx, name, pre):
         print(logging.exception(""))
 
 
-@bot.command(
+@bot.hybrid_command(
     name="fetch",
-    help=
+    description=
     "Fetches a test that has been previously generated. \n`c!fetch Example`",
 )
 async def fetch(ctx, name):
@@ -1397,7 +1494,7 @@ async def fetch(ctx, name):
         print(logging.exception(""))
 
 
-@bot.command(name="customQ", help="Lists question types for `c!genCustom`.")
+@bot.hybrid_command(name="customq", help="Lists question types for `c!genCustom`.")
 async def customQ(ctx):
     ciphers = [
         "Aristocrat", "Patristocrat", "Affine", "Caesar", "Vigenere",
@@ -1406,7 +1503,7 @@ async def customQ(ctx):
         "Nihilist", "Columnar"
     ]
 
-    ciphers = [f"{c+1}  {ciphers[c]}" for c in range(len(ciphers))]
+    ciphers = [f"{c + 1}  {ciphers[c]}" for c in range(len(ciphers))]
     max_len = len(max(ciphers, key=len))
     ciphers = [
         f"{ciphers[c]}".ljust(max_len, " ") for c in range(len(ciphers))
@@ -1434,7 +1531,7 @@ async def customQ(ctx):
     await ctx.send(f"Here's the list of question types:```{formatted_list}```")
 
 
-@bot.command(name="servers", help="Debug tool", hidden=True)
+@bot.hybrid_command(name="servers", description="Debug tool", hidden=True)
 async def servers(ctx):
     if str(ctx.message.author.id) in admin_list:
         servers = list(bot.guilds)
@@ -1449,40 +1546,131 @@ async def servers(ctx):
         await ctx.send("You don't have permissions to use this command.")
 
 
-@bot.command(name="about", help="About me!")
+@bot.hybrid_command(name="about", description="About me!")
 async def about(ctx):
-    await ctx.send(        
-        "Hi! I was made by Allen Chang. My old source code is at https://github.com/AC01010/codebuilder. I used to be maintained by Rasmit Devkota at https://replit.com/@DrAlienTech/codebuilder-immortal#main.py. Now I am run at https://replit.com/@NoahMM/codebuilder-clone"
+    await ctx.send(
+        "Hi! I was made by Allen Chang. My old source code is at https://github.com/AC01010/codebuilder. I used to be "
+        "maintained by Rasmit Devkota at https://replit.com/@DrAlienTech/codebuilder-immortal#main.py. Now I am run "
+        "at https://replit.com/@NoahMM/codebuilder-clone"
     )
 
 
-@bot.command(name="presets", help="Lists presets for `c!gen`.")
+@bot.hybrid_command(name="presets", description="Lists presets for `c!gen`.")
 async def presets(ctx):
     await ctx.send(
-        "```1\tAll Types - 20-30 Questions + Timed - Includes one of each cipher type.\n2\tNational Level Test - 20-30 Questions + Timed - National Level test, with random modes of questions.\n3\tRegional Level Test - 20-30 Questions + Timed - Regional level test, with random modes of questions.\n4\tAristo Spam - 20 Questions + Timed - 20 Unhinted Aristocrats.\n5\tPatristo Spam - 10 Questions + Timed - 10 Unhinted Patristocrats.\n\nAdd b or c after prefixes 1, 2, or 3 to generate a test of that type for the specified division, with question counts varying based on division and type.```"
+        "```1\tAll Types - 20-30 Questions + Timed - Includes one of each cipher type.\n2\tNational Level Test - "
+        "20-30 Questions + Timed - National Level test, with random modes of questions.\n3\tRegional Level Test - "
+        "20-30 Questions + Timed - Regional level test, with random modes of questions.\n4\tAristo Spam - 20 "
+        "Questions + Timed - 20 Unhinted Aristocrats.\n5\tPatristo Spam - 10 Questions + Timed - 10 Unhinted "
+        "Patristocrats.\n\nAdd b or c after prefixes 1, 2, or 3 to generate a test of that type for the specified "
+        "division, with question counts varying based on division and type.```"
     )
 
 
-@bot.command(name="ping", help="Pong!")
+@bot.hybrid_command(name="ping", description="Pong!")
 async def ping(ctx):
-    await ctx.send("Pong!")
+    await ctx.reply("Pong!", ephemeral=True)
 
 
-@bot.command(name="invite", help="Sends invite link to add bot to any server")
+@bot.hybrid_command(name="invite", description="Sends invite link to add bot to any server")
 async def invite(ctx):
     await ctx.send(
         "https://discord.com/api/oauth2/authorize?client_id=1194297018265378916&permissions=117760&scope=bot"
     )
-@bot.command(name="testing")
-async def testing(ctx):
-    await ctx.send("test!")    
-    await ctx.send(ctx.message.author.id)
-    
-@bot.command(name = "server")
-async def server(ctx):
-    await ctx.send(ctx.message.guild.name)
 
-@bot.command(name = "run", hidden = True)
+
+# @bot.hybrid_command(name="testing")
+# async def testing(ctx):
+#     await ctx.send("test!")
+#     await ctx.send(ctx.message.guild.id)
+
+
+# @bot.hybrid_command(name="server")
+# async def server(ctx):
+#     await ctx.send(ctx.message.guild.name)
+
+
+@bot.hybrid_command(name="aristo", description="Do an aristocrat")
+async def aristo(ctx):
+    global inAristo
+    global ct
+    global replacements
+    global begin
+    global hints
+    global quote
+    global key
+    key = getKeyStringRandom()
+    inAristo = True
+    quotes = open("quotes.txt", "r").read().split("\n")
+    dialog = """To replace a letter, run `c!replace` with two characters: the ciphertext character and your plaintext replacement.
+for example, running `c!replace a b` will substute the ciphertex letter a for the plaintext letter b
+To remove a letter, run `c!remove` with the letter you would like to remove (eg. `c!remove a`).
+To give yourself a hint, run `c!hint`, followed by the letter which you would like to reveal (eg. `c!hint a`).
+A ciphertext, your replacement plaintext, and a frequency table will be sent.
+To quit run `c!quit`"""
+    await ctx.reply(dialog, ephemeral=True)
+    quote = quotes[random.randint(0, len(quotes) - 1)].upper()
+    ct = ""
+    for ch in quote:
+        if ch in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+            ct += key["ABCDEFGHIJKLMNOPQRSTUVWXYZ".index(ch)]
+        else:
+            ct += ch
+    replacements = "                          "
+    begin = time.time()
+    hints = 0
+    await display(ctx, ct, replacements)
+
+
+@bot.hybrid_command(name="remove", description="removes a map to a letter for the current aristo")
+async def remove(ctx, letter):
+    global replacements
+    global ct
+    global inAristo
+    if not inAristo:
+        return
+    replacements = replacements[:(ord(letter.upper()) -
+                                  65)] + " " + replacements[
+                                               (ord(letter.upper()) - 64):]
+    await display(ctx, ct, replacements)
+
+
+@bot.hybrid_command(name="replace")
+async def replace(ctx, ciphertext, plaintext):
+    global replacements
+    global ct
+    global inAristo
+    if not inAristo:
+        return
+    replacements = replacements[:(ord(ciphertext.upper()) -
+                                  65)] + plaintext.upper() + replacements[
+                                                             (ord(ciphertext.upper()) - 64):]
+    await display(ctx, ct, replacements)
+
+
+@bot.hybrid_command(name="hint", descripton="Gives you a hint for the current aristo")
+async def hint(ctx, letter):
+    global ct
+    global inAristo
+    global key
+    global replacements
+    if not inAristo:
+        return
+    replacements = replacements[:(
+            ord(letter.upper()) -
+            65)] + "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[key.index(
+        letter.upper())] + replacements[(ord(letter.upper()) - 64):]
+    await display(ctx, ct, replacements)
+
+
+@bot.hybrid_command(name="quit", descripton="Quit the current aristo")
+async def quit(ctx):
+    global inAristo
+    if inAristo:
+        inAristo = False
+
+
+@bot.command(name="run", hidden=True)
 async def run(ctx, method, *code_list):
     if str(ctx.message.author.id) in admin_list:
         try:
@@ -1491,14 +1679,14 @@ async def run(ctx, method, *code_list):
                 code += i + " "
         except:
             pass
-        if(str(method) == "python"):
+        if str(method) == "python":
             try:
                 exec(code)
             except:
                 await ctx.send("failed to run code")
             else:
                 await ctx.send("successfully ran code")
-        elif(str(method) == "shell"):
+        elif str(method) == "shell":
             try:
                 await ctx.send(subprocess.run(code, shell=True))
             except:
@@ -1509,7 +1697,8 @@ async def run(ctx, method, *code_list):
             await ctx.send(f"unknown method: {method}")
     else:
         await ctx.send("You don't have permissions to use this command.")
-            
+
+
 @bot.event
 async def on_ready():
     background_task.start()
@@ -1524,13 +1713,14 @@ async def background_task():
         activity=discord.Game(next(cycle(['Codebusters']))))
 
 
-try:
+if __name__ == "__main__":
     keep_alive()
+try:
 
     print("Started!")
 
     bot.run(TOKEN)
 except discord.errors.HTTPException:
     print("Ratelimited!")
-
-    # os.system("exit 1")  # might need to switch to kill, not sure
+    os.system("python3 restarter.py")
+    os.system('kill 1')
