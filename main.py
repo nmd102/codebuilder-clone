@@ -12,7 +12,13 @@ import sympy
 from discord import File
 from discord.ext import commands, tasks
 
-from keep_alive import keep_alive
+try:
+    open(".replit")
+except FileNotFoundError:
+    pass
+else:
+    # this will only execute if a .replit file is present
+    from keep_alive import keep_alive
 
 TOKEN = os.getenv("TOKEN")
 
