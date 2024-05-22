@@ -828,14 +828,14 @@ def getDeterminant(l):
 
 
 def get2x2Key():
-    f = open("2x2hillwords", "r")
+    f = open("2x2hillwords.txt", "r")
     for i in range(0, random.randint(0, 490)):
         f.readline()
     return f.readline().strip().lower()
 
 
 def get3x3Key():
-    f = open("3x3hillwords", "r")
+    f = open("3x3hillwords.txt", "r")
     for i in range(0, random.randint(0, 4900)):
         f.readline()
     return f.readline().strip().lower()
